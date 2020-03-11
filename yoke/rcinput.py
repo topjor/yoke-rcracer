@@ -49,10 +49,18 @@ class rcinput:
 
     ## done after each full update
     def syn(self):
+        # get right Axis for the 2 modes
         if self.active == 1:
-            # TODO put your output logic here
-            print(self.input["ABS_X"], self.input["ABS_Y"], self.input["ABS_RX"], self.input["ABS_RY"], self.input["ABS_GAS"], self.active)
+            X = self.input["ABS_X"]
+            Y = self.input["ABS_Y"]
+            RX = self.input["ABS_RX"]
+            RY = self.input["ABS_RY"]
+            G = self.input["ABS_GAS"]
         else:
-            # TODO put your output logic here, but use the default values so input is reset when not active
-            print("inactive")
-            print(self.input_default["ABS_X"], self.input_default["ABS_Y"], self.input_default["ABS_RX"], self.input_default["ABS_RY"], self.input_default["ABS_GAS"], self.active)
+            X = self.input_default["ABS_X"]
+            Y = self.input_default["ABS_Y"]
+            RX = self.input_default["ABS_RX"]
+            RY = self.input_default["ABS_RY"]
+            G = self.input_default["ABS_GAS"]
+
+        #TODO put your processing under here
