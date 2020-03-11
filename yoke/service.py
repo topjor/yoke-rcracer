@@ -84,25 +84,19 @@ preliminary_error = None
 class Device:
     def __init__(self, id=1, name='Yoke', events=(), bytestring=b'!impossible?aliases#string$'):
         self.name = name + '-' + str(id)
-        for fn in glob('/sys/class/input/js*/device/name'):
-            with open(fn) as f:
-                fname = f.read().split()[0]  # need to split because there seem to be newlines
-                if name == fname:
-                    raise AttributeError('Device name "{}" already taken. Set another name with --name NAME'.format(name))
 
         # set range (0, 255) for abs events
         self.events = events
         self.bytestring = bytestring
         events = [e + (0, 255, 0, 0) if e in ABS_EVENTS else e for e in events]
 
-        BUS_VIRTUAL = 0x06
-        import uinput
-
-        self.device = uinput.Device(events, name, BUS_VIRTUAL)
+        # TODO self.device
+        import yoke.rcinput
+        self.device = yoke.rcinput()
 
     def emit(self, d, v):
         if d not in self.events:
-            print('Event {d} has not been registered… yet?')
+            print('Event {d} has not been registered... yet?')
         self.device.emit(d, int(v), False)
 
     def flush(self):
@@ -110,69 +104,6 @@ class Device:
 
     def close(self):
         self.device.destroy()
-
-
-# Override on Windows
-if system() is 'Windows':
-    print('Warning: This is not well tested on Windows!')
-
-    from yoke.vjoy.vjoydevice import VjoyDevice
-
-    class Device:
-        def __init__(self, id=1, name='Yoke', events=(), bytestring=b'!impossible?aliases#string$'):
-            super().__init__()
-            self.name = name + '-' + str(id)
-            self.device = VjoyDevice(id)
-            self.lib = self.device.lib
-            self.id = self.device.id
-            self.struct = self.device.struct
-            self.events = []
-            self.bytestring = bytestring
-            #a vJoy controller has up to 8 axis with fixed names, and 128 buttons with no names.
-            #TODO: Improve mapping between uinput events and vJoy controls.
-            axes = 0
-            buttons = 0
-            for event in events:
-                if event[0] == 0x01: # button/key
-                    self.events.append((event[0], buttons)); buttons += 1
-                elif event[0] == 0x03: # analog axis
-                    self.events.append((event[0], axes)); axes += 1
-            self.axes = [0,] * 15
-            self.buttons = 0
-        def emit(self, d, v):
-            if d is not None:
-                if d[0] == 0x03: #analog axis
-                    # To map from [0, 255] to [0x1, 0x8000], take the bitstring abcdefgh,
-                    # parse the bitstring abcdefghabcdefg, and then sum 1.
-                    self.axes[d[1]] = ((v << 7) | (v >> 1)) + 1
-                else:
-                    self.buttons |= (v << d[1])
-        def flush(self):
-            # Struct JOYSTICK_POSITION_V2's definition can be found at
-            # https://github.com/shauleiz/vJoy/blob/2c9a6f14967083d29f5a294b8f5ac65d3d42ac87/SDK/inc/public.h#L203
-            # It's basically:
-            # 1 BYTE for device ID
-            # 3 unused LONGs
-            # 8 LONGs for axes
-            # 7 unused LONGs
-            # 1 LONGs for buttons
-            # 4 DWORDs for hats
-            # 3 LONGs for buttons
-            self.lib.UpdateVJD(self.id, self.struct.pack(
-                self.id, # 1 BYTE for device ID
-                0, 0, 0, # 3 unused LONGs
-                *self.axes, # 8 LONGs for axes and 7 unused LONGs
-                self.buttons & 0xffffffff, # 1 LONG for buttons
-                0, 0, 0, 0, # 4 DWORDs for hats
-                (self.buttons >> 32) & 0xffffffff,
-                (self.buttons >> 64) & 0xffffffff,
-                (self.buttons >> 96) & 0xffffffff # 3 LONGs for buttons
-            ))
-
-            # This allows a very simple emit() definition:
-            self.buttons = 0
-        def close(self):
-            self.device.close()
 
 
 zeroconf = Zeroconf()
@@ -224,7 +155,7 @@ def walk_failed(e):
     raise
 
 def check_webserver(path):
-    print('Checking files on webserver… ', end='')
+    print('Checking files on webserver... ', end='')
     manifestContents = {
         'folders': [], 'files': [],
         'size': 0,
@@ -242,7 +173,7 @@ def check_webserver(path):
                 manifestContents['mtime'] = max(manifestContents['mtime'], entrystat.st_mtime)
     print('OK.')
     try:
-        print('Writing manifest… ', end='')
+        print('Writing manifest... ', end='')
         with open(os.path.join(path, 'manifest.json'), 'w') as manifest:
             json.dump(manifestContents, manifest)
             print('OK.')
@@ -369,7 +300,7 @@ class Service:
                 irecv += 1
 
     def close_atexit(self):
-        print('Yoke: Unregistering zeroconf service…')
+        print('Yoke: Unregistering zeroconf service...')
         self.close()
 
     def close(self):
