@@ -1,1 +1,2 @@
-from yoke.service import Device, Service, EVENTS
+from .service import Device, Service, EVENTS
+from .rcinput import rcinput
